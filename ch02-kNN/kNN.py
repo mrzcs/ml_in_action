@@ -10,6 +10,13 @@ def createDataSet():
     labels = ['A', 'A', 'B', 'B']
     return group, labels
 
+def createDataSet2():
+    #create a dataset
+    movie = np.array([[3, 104], [2, 100], [1, 81], [101, 10], [99, 5], [98, 2]])
+    #create labels
+    types = ['Romance', 'Romance', 'Romance', 'Action', 'Action', 'Action']
+    return movie, types
+    
 def classify0(inX, dataSet, labels, k):
     dataSetSize = dataSet.shape[0] 
     #inX: the input vector to classify 
@@ -25,7 +32,8 @@ def classify0(inX, dataSet, labels, k):
     distances = sqDistances**0.5 ## square root 开根号
     
     #将距离排序：从小到大
-    sortedDistIndicies = distances.argsort()
+    sortedDistIndicies = distances.argsort() #argsort返回下标，从0开始
+
     #选取前K个最短距离， 选取这K个中最多的分类类别
     classCount = {}
     for i in range(k):
@@ -34,11 +42,43 @@ def classify0(inX, dataSet, labels, k):
     sortedClassCount = sorted(classCount.iteritems(), key = op.itemgetter(1), reverse=True)
     return sortedClassCount[0][0]
 
-
+def file2matrix(filename): # to handle datingTestSet2.txt
+    fr = open(filename)
+    #get num of line
+    numberOfLines = len(fr.readlines())
+    #generate all 0 matrix, numberOfLines x 3
+    returnMat = np.zeros((numberOfLines, 3))
+    classLabelVector = [] # prepare labels
+    fr = open(filename)
+    index = 0
+    for line in fr.readlines():
+        line = line.strip()
+        #split line with tab
+        listFromLine = line.split('\t')
+        returnMat[index,:] = listFromLine[0:3]
+        classLabelVector.append(int(listFromLine[-1]))
+        index += 1
+    return returnMat, classLabelVector
     
     
-    
-    
+def file2matrix2(filename): # to handle datingTestSet.txt
+    fr = open(filename)
+    #get num of line
+    numberOfLines = len(fr.readlines())
+    #generate all 0 matrix, numberOfLines x 3
+    returnMat = np.zeros((numberOfLines, 3))
+    classLabelVector = [] # prepare labels
+    fr = open(filename)
+    index = 0
+    for line in fr.readlines():
+        line = line.strip()
+        #split line with tab
+        listFromLine = line.split('\t')
+        returnMat[index,:] = listFromLine[0:3]
+        labels = {'didntLike':1,'smallDoses':2,'largeDoses':3}
+        classLabelVector.append(labels[listFromLine[-1]])
+        index += 1
+    return returnMat, classLabelVector    
     
     
     
