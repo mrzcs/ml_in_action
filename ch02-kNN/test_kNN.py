@@ -36,4 +36,11 @@ import numpy as np
 #print(minVals)
 
 #test case 4
-kNN.datingClassTest()
+#kNN.datingClassTest()
+
+#test case 5
+#kNN.classifyPerson()
+
+#test case 6
+#kNN.handwritingClassTest()
+kNN.handwritingClassTestSKL()

@@ -4,7 +4,9 @@ import operator as op
 import matplotlib.pyplot as plt
 import matplotlib.lines as mlines
 from matplotlib.font_manager import FontProperties
-from imp import reload # to enable py3 reload module
+from imp import reload # to enable reload in py3
+from os import listdir
+from sklearn.neighbors import KNeighborsClassifier as knc
 
 def createDataSet():
     #create a dataset
@@ -121,7 +123,7 @@ def file2matrix(filename):
     returnMat = np.zeros((numberOfLines, 3))
     classLabelVector = [] 
     index = 0
-    labels = {'didntLike':1,'smallDoses':2,'largeDoes':3}
+    labels = {'didntLike':1,'smallDoses':2,'largeDoses':3}
     for line in arrayLines:
         line = line.strip()
         #split line with tab
@@ -188,13 +190,13 @@ def showData(dataMat, labels):
     
     #设置图例
     didntLike = mlines.Line2D([],[],color='black',marker='.',markersize=6, label='didntLike')
-    smallDoes = mlines.Line2D([],[],color='orange',marker='.',markersize=6, label='smallDoes')
-    largeDoes = mlines.Line2D([],[],color='red',marker='.',markersize=6, label='largeDoes')
+    smallDoses = mlines.Line2D([],[],color='orange',marker='.',markersize=6, label='smallDoses')
+    largeDoses = mlines.Line2D([],[],color='red',marker='.',markersize=6, label='largeDoses')
     
     #添加图例
-    axs[0][0].legend(handles=[didntLike,smallDoes,largeDoes]) 
-    axs[0][1].legend(handles=[didntLike,smallDoes,largeDoes])
-    axs[1][0].legend(handles=[didntLike,smallDoes,largeDoes])
+    axs[0][0].legend(handles=[didntLike,smallDoses,largeDoses]) 
+    axs[0][1].legend(handles=[didntLike,smallDoses,largeDoses])
+    axs[1][0].legend(handles=[didntLike,smallDoses,largeDoses])
     
     #显示图片
     plt.show()
@@ -244,3 +246,137 @@ def datingClassTest():
         print("the classifier came back with: %d, the real answer is: %d" % (classifierResult, datingLabels[i]))
         if (classifierResult != datingLabels[i]): errorCount += 1.0
     print("the total error rate is: %100.2f%%" % (errorCount/float(numTestVecs)*100))
+    
+def classifyPerson():
+    #输出结果
+    resultList = ['not at all', 'in small doses', 'in large doses']
+    #三维特征用户输入
+    percentTats = float(input("pct of the time spent playing video games? "))
+    ffMiles = float(input("frequent flier miles earned per year? "))
+    iceCream = float(input("liters of ice cream consumed per weekly? "))
+    #打开并处理数据
+    filename = "datingTestSet.txt"
+    datingDataMat, datingLabels = file2matrix(filename)
+    #训练集归一化
+    normMat, ranges, minVals = autoNorm(datingDataMat)
+    #生成NumPy数组,测试集
+    inArr = np.array([ffMiles, percentTats, iceCream])
+    #测试集归一化
+    norminArr = (inArr - minVals) / ranges
+    #返回分类结果
+    classifierResult =  classify0(norminArr, normMat, datingLabels, 3)
+    #打印结果
+    print("You will probably like this person: %s" % resultList[classifierResult - 1])
+    
+def img2vector(filename):
+    """
+    Parameters:
+        filename - 文件名
+    Returns:
+        returnVect - 返回的二进制图像的1x1024向量
+    """
+    #创建1x1024零向量
+    returnVect = np.zeros((1,1024))
+    fr = open(filename)
+    for i in range(32):
+        lineStr = fr.readline()
+        #每一行的前32个元素依次添加到returnVect中
+        for j in range(32):
+            returnVect[0,32*i+j] = int(lineStr[j])
+    #返回转换后的1x1024向量
+    return returnVect
+    
+def handwritingClassTest():
+    #测试集的Labels
+    hwLabels = []
+    #返回trainingDigits目录下的文件名
+    trainingFileList = listdir("trainingDigits")
+    #返回文件夹下文件的个数
+    m = len(trainingFileList)
+    #初始化训练的Mat矩阵,测试集
+    trainingMat = np.zeros((m,1024))
+    #从文件名中解析出训练集的类别
+    for i in range(m):
+        #获得文件的名字
+        fileNameStr = trainingFileList[i]
+        #fileStr = fileNameStr.split('.')[0]
+        #获得分类的数字
+        classNumStr = int(fileNameStr.split('_')[0])
+        #将获得的类别添加到hwLabels中
+        hwLabels.append(classNumStr)
+        #将每一个文件的1x1024数据存储到trainingMat矩阵中
+        trainingMat[i,:] = img2vector("trainingDigits/%s" % fileNameStr)
+        
+    #返回testDigits目录下的文件列表
+    testFileList = listdir("testDigits")
+    #错误检测计数
+    errorCount = 0.0
+    #测试数据的数量
+    mTest = len(testFileList)
+    #从文件中解析出测试集的类别并进行分类测试
+    for i in range(mTest):
+        #获得文件的名字
+        fileNameStr = testFileList[i]
+        #fileStr = fileNameStr.split('.')[0]
+        #获得分类的数字
+        classNumStr = int(fileNameStr.split('_')[0])
+        #获得测试集的1x1024向量,用于训练
+        vectorUnderTest = img2vector("testDigits/%s" % fileNameStr)
+        #获得预测结果
+        classifierResult =  classify0(vectorUnderTest, trainingMat, hwLabels, 3)
+        print("the classifier came back with: %d, the real answer is: %d" % (classifierResult, classNumStr))
+        if (classifierResult != classNumStr): errorCount += 1.0
+    print("\n the total number of errors is: %d" % errorCount)
+    print("\n the total error rate is: %100.2f%%" % (errorCount/float(mTest)*100))
+    
+def handwritingClassTestSKL():
+    #测试集的Labels
+    hwLabels = []
+    #返回trainingDigits目录下的文件名
+    trainingFileList = listdir("trainingDigits")
+    #返回文件夹下文件的个数
+    m = len(trainingFileList)
+    #初始化训练的Mat矩阵,测试集
+    trainingMat = np.zeros((m,1024))
+    #从文件名中解析出训练集的类别
+    for i in range(m):
+        #获得文件的名字
+        fileNameStr = trainingFileList[i]
+        #fileStr = fileNameStr.split('.')[0]
+        #获得分类的数字
+        classNumStr = int(fileNameStr.split('_')[0])
+        #将获得的类别添加到hwLabels中
+        hwLabels.append(classNumStr)
+        #将每一个文件的1x1024数据存储到trainingMat矩阵中
+        trainingMat[i,:] = img2vector("trainingDigits/%s" % fileNameStr)
+    
+    """
+    SK-learn method
+    """
+    #构建kNN分类器
+    neigh =knc(n_neighbors=3, algorithm='auto')
+    #拟合模型, trainingMat为测试矩阵,hwLabels为对应的标签
+    neigh.fit(trainingMat, hwLabels)
+    
+    #返回testDigits目录下的文件列表
+    testFileList = listdir("testDigits")
+    #错误检测计数
+    errorCount = 0.0
+    #测试数据的数量
+    mTest = len(testFileList)
+    #从文件中解析出测试集的类别并进行分类测试
+    for i in range(mTest):
+        #获得文件的名字
+        fileNameStr = testFileList[i]
+        #fileStr = fileNameStr.split('.')[0]
+        #获得分类的数字
+        classNumStr = int(fileNameStr.split('_')[0])
+        #获得测试集的1x1024向量,用于训练
+        vectorUnderTest = img2vector("testDigits/%s" % fileNameStr)
+        #获得预测结果
+        #classifierResult =  classify0(vectorUnderTest, trainingMat, hwLabels, 3)
+        classifierResult = neigh.predict(vectorUnderTest)
+        print("the classifier came back with: %d, the real answer is: %d" % (classifierResult, classNumStr))
+        if (classifierResult != classNumStr): errorCount += 1.0
+    print("\n the total number of errors is: %d" % errorCount)
+    print("\n the total error rate is: %100.2f%%" % (errorCount/float(mTest)*100))
