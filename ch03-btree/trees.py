@@ -57,7 +57,7 @@ def createDataSet():
     return dataSet, labels
     
 def createDataSet2():
-        """
+    """
     函数说明:创建测试数据集
      
     Parameters:
@@ -66,7 +66,7 @@ def createDataSet2():
         dataSet - 数据集
         labels - 特征标签
     """
-    dataSet = [[0, 0, 0, 0, 'no'],                        #数据集
+    dataSet = [[0, 0, 0, 0, 'no'],
             [0, 0, 0, 1, 'no'],
             [0, 1, 0, 1, 'yes'],
             [0, 1, 1, 0, 'yes'],
@@ -85,7 +85,7 @@ def createDataSet2():
     return dataSet, labels                #返回数据集和分类属性   
 
 def createDataSet3():
-        """
+    """
     函数说明:创建测试数据集
      
     Parameters:
@@ -193,6 +193,7 @@ def createTree(dataSet, labels):
     Returns:
         myTree - 决策树
     """
+    featLabels = []
     classList = [example[-1] for example in dataSet]
     #print(classList)
     if classList.count(classList[0]) == len(classList): # stop when all classes are equal
@@ -204,7 +205,7 @@ def createTree(dataSet, labels):
     #print("main")
     bestFeat = chooseBestFeature(dataSet)
     bestFeatLabel = labels[bestFeat]
-    #featLabels.append(bestFeatLabel)
+    featLabels.append(bestFeatLabel)
     myTree = {bestFeatLabel:{}}
     del(labels[bestFeat])
     featValues = [example[bestFeat] for example in dataSet]
@@ -214,4 +215,16 @@ def createTree(dataSet, labels):
         myTree[bestFeatLabel][value] = createTree(splitDataSet(dataSet, bestFeat, value), subLabels)
                            
     return myTree  
-   
+
+def classify(inputTree, featLabels, testVec):
+    firstStr = list(inputTree.keys())[0]
+    secondDict = inputTree[firstStr]
+    featIndex = featLabels.index(firstStr)
+    for key in secondDict.keys():
+        if testVec[featIndex] == key:
+            if type(secondDict[key]).__name__ == 'dict':
+                classLabel = classify(secondDict[key], featLabels, testVec)
+            else:
+                classLabel = secondDict[key]
+    return classLabel
+

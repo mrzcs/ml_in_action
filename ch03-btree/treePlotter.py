@@ -98,19 +98,29 @@ def plotMidText(cntrPt, parentPt, txtString):
     Returns:
         无
     """
-    xMid = (parentPt[0] - cntrPt[0]) / 2.0 + cntrPt[0]
+    xMid = (parentPt[0] - cntrPt[0]) / 2.0 + cntrPt[0] #计算标注位置
     yMid = (parentPt[1] - cntrPt[1]) / 2.0 + cntrPt[1]
     createPlot.ax1.text(xMid, yMid, txtString, va="center", ha="center", rotation=30)
 
 def plotTree(myTree, parentPt, nodeTxt):
-    #decisionNode = dict(boxstyle="sawtooth", fc="0.8")
-    #leafNode = dict(boxstyle="round4", fc="0.8")
-    numLeafs = getNumLeafs(myTree)
-    #depth = getTreeDepth(myTree)
-    getTreeDepth(myTree)
+    """
+    函数说明:绘制决策树
+    
+    Parameters:
+        myTree - 决策树(字典)
+        parentPt - 标注的内容
+        nodeTxt - 结点名
+    Returns:
+        无
+    """
+    #decisionNode = dict(boxstyle="sawtooth", fc="0.8") #设置结点格式
+    #leafNode = dict(boxstyle="round4", fc="0.8") #设置叶结点格式
+    numLeafs = getNumLeafs(myTree) #获取决策树叶结点数目，决定了树的宽度
+    #depth = getTreeDepth(myTree) #获取决策树层数
+    getTreeDepth(myTree) 
     #firstStr = next(iter(myTree))
     firstStr = list(myTree.keys())[0]
-    cntrPt = (plotTree.xOff + (1.0 + float(numLeafs)) / 2.0 / plotTree.totalW, plotTree.yOff)
+    cntrPt = (plotTree.xOff + (1.0 + float(numLeafs)) / 2.0 / plotTree.totalW, plotTree.yOff) #中心位置
     plotMidText(cntrPt, parentPt, nodeTxt)
     plotNode(firstStr, cntrPt, parentPt, decisionNode)
     secondDict = myTree[firstStr]
