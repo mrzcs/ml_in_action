@@ -196,7 +196,7 @@ def spamTest():
         wordVector = setOfWords2Vec(vocabList, docList[docIndex])  #测试集的词集模型
         if classifyNB(np.array(wordVector), p0V, p1V, pSpam) != classList[docIndex]: #如果分类错误, 错误计数加1
             errorCount += 1
-            print('error Set: ', docList[docIndex])
+            print('classification error: ', docList[docIndex])
     print('the error rate is: ', float(errorCount)/len(testSet))
 
 if __name__ == '__main__':
