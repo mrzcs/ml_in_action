@@ -1,6 +1,5 @@
 # -*- coding: UTF-8 -*-
 import numpy as np
-import re
 import random
 
 def loadDataSet():
@@ -157,7 +156,8 @@ def textParse(bigString):
     Returns:
         无
     """
-    listOfTokens = re.split(r'\W*', bigString) #将特殊符号作为切分标志进行字符串切分，即非字母、非数字
+    import re
+    listOfTokens = re.split(r'\W+', bigString) #将特殊符号作为切分标志进行字符串切分，即非字母、非数字
     return [tok.lower() for tok in listOfTokens if len(tok) >2 ]  #去除单个字母,space，大写变成小写
 
 def spamTest():
@@ -171,26 +171,35 @@ def spamTest():
     """
     docList = []; classList = []; fullText = []
     for i in range(1, 26): #遍历25个txt文件
-        wordList = textParse(open('ch04-Bayes/email/spam/%d.txt' % i, 'r', encoding='utf-8', errors='ignore').read()) #读取每个垃圾邮件，并字符串转换成字符串列表
+        wordList = textParse(open('ch04-Bayes/email/spam/%d.txt' % i, 'r', encoding='utf-8', errors='ignore').read()) #读取每个垃圾邮件，字符串转换成字符串列表
         docList.append(wordList)
         fullText.extend(wordList)
         classList.append(1) #标记垃圾邮件，1表示垃圾文件
-        wordList = textParse(open('ch04-Bayes/email/ham/%d.txt' % i, 'r', encoding='utf-8', errors='ignore').read())  #读取每个非垃圾邮件，并字符串转换成字符串列表
+        wordList = textParse(open('ch04-Bayes/email/ham/%d.txt' % i, 'r', encoding='utf-8', errors='ignore').read())  #读取每个非垃圾邮件，字符串转换成字符串列表
         docList.append(wordList)
         fullText.extend(wordList)
         classList.append(0) #标记非垃圾邮件，1表示垃圾文件
     vocabList = createVocabList(docList) #创建词汇表，不重复
+    #print('\n vocab List: ', vocabList)
+
     trainingSet = list(range(50)); testSet = []  #创建存储训练集的索引值的列表和测试集的索引值的列表
     for i in range(10):  #从50个邮件中，随机挑选出40个作为训练集,10个做测试集
         randIndex = int(random.uniform(0, len(trainingSet))) #随机选取索索引值
         testSet.append(trainingSet[randIndex]) #添加测试集的索引值
         del(trainingSet[randIndex]) #在训练集列表中删除添加到测试集的索引值
+    #print('\n test set: ', testSet)
 
     trainMat = []; trainClasses = [] #创建训练集矩阵和训练集类别标签系向量
     for docIndex in trainingSet: #遍历训练集
         trainMat.append(setOfWords2Vec(vocabList, docList[docIndex]))  #将生成的词集模型添加到训练矩阵中
         trainClasses.append(classList[docIndex]) #将类别添加到训练集类别标签系向量中
+    #print('\n train matrix: ', trainMat)
+
     p0V, p1V, pSpam = trainNB0(np.array(trainMat), np.array(trainClasses)) #训练朴素贝叶斯模型
+    #print('p0V:', p0V)
+    #print('p1V:', p1V)
+    #print('pSpam:', pSpam)
+
     errorCount = 0  #错误分类计数
     for docIndex in testSet: #遍历测试集
         wordVector = setOfWords2Vec(vocabList, docList[docIndex])  #测试集的词集模型
@@ -199,8 +208,152 @@ def spamTest():
             print('classification error: ', docList[docIndex])
     print('the error rate is: ', float(errorCount)/len(testSet))
 
+def stopWords():
+    wordList = textParse(open('ch04-Bayes/stopword.txt').read())
+    return wordList
+    """import re
+    wordList =  open('ch04-Bayes/stopword.txt').read()
+    listOfTokens = re.split(r'\W+', wordList)
+    return [tok.lower() for tok in listOfTokens]
+    print('read stop word from \'stopword.txt\':',listOfTokens)
+    return listOfTokens """
+
+
+def calcMostFreq(vocabList, fullText): #从fullText中找出最高频的前30个单词
+    import operator
+    freqDict = {}
+    for token in vocabList: #统计词汇表里所有单词的出现次数
+        freqDict[token] = fullText.count(token)
+    sortedFreq = sorted(freqDict.items(), key=operator.itemgetter(1), reverse=True)
+    return sortedFreq[:30] ##返回字典
+
+def localWords(feed1, feed0): #两份RSS文件分别经feedparser解析，得到2个字典
+    print('feed1 entries length: ', len(feed1['entries']), '\nfeed0 entries length: ', len(feed0['entries']))
+    #entries条目包含多个帖子，miNLen记录帖子数少的数目，怕越界
+    minLen = min(len(feed1['entries']), len(feed0['entries']))
+    print('\nmin Length: ', minLen)
+
+    docList = [] #一条条帖子组成的List, 帖子拆成了单词
+    classList = [] #标签列表
+    fullText = [] #所有帖子的所有单词组成的List
+
+    for i in range(minLen):
+        wordList = textParse(feed1['entries'][i]['summary'])#取出帖子内容，并拆成词
+        docList.append(wordList)
+        fullText.extend(wordList)
+        classList.append(1) #NY
+        wordList = textParse(feed0['entries'][i]['summary'])
+        docList.append(wordList)
+        fullText.extend(wordList)
+        classList.append(0) #SF
+
+    vocabList = createVocabList(docList) #创建词汇表
+    print('\nVocabList is ',len(vocabList))
+
+    # Removes stop words
+    print('\nRemoving stop words')
+    stopWordList = stopWords()
+    for stopWord in set(stopWordList):
+        if stopWord in vocabList:
+            vocabList.remove(stopWord)
+
+    # Removes most frequently occurring words
+    # 从fulltext中找出最高频的30个单词，并从vocabList中去除它们
+    """ top30Words = calcMostFreq(vocabList, fullText)
+    for (word,count) in top30Words:
+        if word in vocabList:
+            vocabList.remove(word) """
+
+    print('\nremaining: ',len(vocabList))
+
+    trainingSet = list(range(2*minLen))
+    testSet=[]
+    testCount = int(2*minLen*0.2)
+    print('total count of test: ', testCount)
+    for i in range(testCount): #随机选取20%的数据，建立测试集
+        randIndex = int(random.uniform(0, len(trainingSet)))
+        testSet.append(trainingSet[randIndex])
+        del(trainingSet[randIndex])
+
+    trainMat = []; trainClasses = []
+    for docIndex in trainingSet:
+        trainMat.append(bagOfWords2VecMN(vocabList, docList[docIndex])) #将训练集中的每一条数据，转化为词向量
+        trainClasses.append(classList[docIndex])
+    p0V, p1V, pSpam = trainNB0(np.array(trainMat), np.array(trainClasses)) #开始训练
+
+    # 用测试数据，测试分类器的准确性
+    errorCount = 0
+    for docIndex in testSet:
+        wordVector = bagOfWords2VecMN(vocabList, docList[docIndex])
+        classifiedClass = classifyNB(np.array(wordVector), p0V, p1V, pSpam)
+        originalClass = classList[docIndex]
+        if classifiedClass != originalClass:
+            errorCount += 1
+            #print('classification error: ', docList[docIndex])
+            print('\n',docList[docIndex],'\nis classified as: ',classifiedClass,', while the original class is: ',originalClass)
+    print('the error rate is: ', float(errorCount)/len(testSet))
+    return vocabList, p0V, p1V
+
+def getTopWords(ny,sf):
+    import operator
+    vocabList, p0V, p1V = localWords(ny,sf)
+    topNY = [];topSF = []
+    for i in range(len(p0V)):
+        if p0V[i] > -6.0: topSF.append((vocabList[i], p0V[i]))
+        if p1V[i] > -6.0: topNY.append((vocabList[i], p1V[i]))
+    sortedSF = sorted(topSF, key=lambda pair: pair[1], reverse=True)
+    print('SF**SF**SF**SF**SF**SF**SF**SF**SF**SF**SF**SF**SF**SF**')
+    for item in sortedSF:
+        print(item[0])
+    sortedNY = sorted(topNY, key=lambda pair: pair[1], reverse=True)
+    print('NY**NY**NY**NY**NY**NY**NY**NY**NY**NY**NY**NY**NY**NY **')
+    for item in sortedNY:
+        print(item[0])
+
+
+def textProcessing(folderPath):
+    import os
+    import jieba
+    folderList = os.listdir(folderPath)
+    dataList =[]
+    classList = []
+
+    for folder in folderList:
+        newFolderPath = os.path.join(folderPath, folder)
+        files = os.listdir(newFolderPath)
+
+        j = 1
+        for file in files:
+            if j > 100:
+                break
+            with open(os.path.join(newFolderPath, file), 'r', encoding='utf-8') as f:
+                raw = f.read()
+            wordCut = jieba.cut(raw, cut_all=False)
+            wordList = list(wordCut)
+
+            dataList.append(wordList)
+            classList.append(folder)
+            j += 1
+        print(dataList)
+        print(classList)
+
+def testRSS():
+    import feedparser
+    ny=feedparser.parse('https://newyork.craigslist.org/search/res?format=rss')
+    sf=feedparser.parse('https://sfbay.craigslist.org/search/res?format=rss')
+    #ny=feedparser.parse('http://www.nasa.gov/rss/dyn/image_of_the_day.rss')
+    #sf=feedparser.parse('http://sports.yahoo.com/nba/teams/hou/rss.xml')
+    # 构建的这个分类器的作用是给出一条帖子，判断（猜测）它是来自那个地区的。New York是1，San Francisco是0.
+    vocabList,pSF,pNY = localWords(ny,sf)
+
+def testTopWords():
+    import feedparser
+    ny=feedparser.parse('https://newyork.craigslist.org/search/res?format=rss')
+    sf=feedparser.parse('https://sfbay.craigslist.org/search/res?format=rss')
+    getTopWords(ny,sf)
+
 if __name__ == '__main__':
-    """     docList = []; classList=[]
+    """docList = []; classList=[]
     for i in range(1, 26):
         wordList = textParse(open('ch04-Bayes/email/spam/%d.txt' % i, 'r', encoding='utf-8', errors='ignore').read())
         docList.append(wordList)
@@ -211,4 +364,12 @@ if __name__ == '__main__':
     vocabList = createVocabList(docList)
     print(vocabList) """
 
-    spamTest()
+    #spamTest()
+
+
+    testRSS()
+    #testTopWords()
+
+    #folderPath = 'ch04-Bayes/SogouC/Sample'
+    #textProcessing(folderPath)
+
