@@ -208,7 +208,7 @@ def spamTest():
             print('classification error: ', docList[docIndex])
     print('the error rate is: ', float(errorCount)/len(testSet))
 
-def stopWords():
+def stopWordsOld():
     wordList = textParse(open('ch04-Bayes/stopword.txt').read())
     return wordList
     """import re
@@ -252,7 +252,8 @@ def localWords(feed1, feed0): #两份RSS文件分别经feedparser解析，得到
 
     # Removes stop words
     print('\nRemoving stop words')
-    stopWordList = stopWords()
+    stopWordList = stopWords('ch04-Bayes/stopword.txt')
+    #stopWordList = stopWordsOld()
     for stopWord in set(stopWordList):
         if stopWord in vocabList:
             vocabList.remove(stopWord)
@@ -311,31 +312,120 @@ def getTopWords(ny,sf):
         print(item[0])
 
 
-def textProcessing(folderPath):
+def textProcessing(folderPath, testSize = 0.2):
+    """
+    函数说明:中文文本处理
+
+    Parameters:
+        folderPath - 文本存放的路径
+        testSize - 测试集占比，默认占所有数据集的百分之20
+    Returns:
+        allWordList - 按词频降序排序的训练集列表
+        trainDataList - 训练集列表
+        testDataList - 测试集列表
+        trainClassList - 训练集标签列表
+        testClassList - 测试集标签列表
+    """
     import os
     import jieba
-    folderList = os.listdir(folderPath)
-    dataList =[]
-    classList = []
 
-    for folder in folderList:
-        newFolderPath = os.path.join(folderPath, folder)
-        files = os.listdir(newFolderPath)
+    folderList = os.listdir(folderPath) #查看folderList下的文件
+    dataList =[] #数据集数据
+    classList = [] #数据集类别
+
+    for folder in folderList: #遍历每个子文件夹
+        newFolderPath = os.path.join(folderPath, folder) #根据子文件夹，生成新的路径
+        files = os.listdir(newFolderPath) #存放子文件夹下的txt文件的列表
 
         j = 1
-        for file in files:
-            if j > 100:
+        for file in files: #遍历每个txt文件
+            if j > 100: #每类txt样本数最多100个
                 break
-            with open(os.path.join(newFolderPath, file), 'r', encoding='utf-8') as f:
+            with open(os.path.join(newFolderPath, file), 'r', encoding='utf-8') as f: #打开txt文件
                 raw = f.read()
-            wordCut = jieba.cut(raw, cut_all=False)
-            wordList = list(wordCut)
+            wordCut = jieba.cut(raw, cut_all=False) #精简模式，返回一个可迭代的generator
+            wordList = list(wordCut) #generator转换为list
 
-            dataList.append(wordList)
-            classList.append(folder)
+            dataList.append(wordList) #添加数据集数据
+            classList.append(folder) #添加数据集类别
             j += 1
-        print(dataList)
-        print(classList)
+        #print(dataList)
+        #print(classList)
+    dataClassList = list(zip(dataList, classList)) #zip压缩合并，将数据与标签对应压缩
+    random.shuffle(dataClassList)  # 将dataClassList乱序
+    index = int(len(dataClassList) * testSize) + 1 #训练集和测试集切分的索引值
+    trainList = dataClassList[index:] #训练集
+    testList = dataClassList[:index] #测试集
+    trainDataList, trainClassList = zip(*trainList) #训练集解压缩
+    testDataList, testClassList = zip(*testList) #测试集解压缩
+
+    allWordDict = {} #统计训练集词频
+    for wordList in trainDataList:
+        for word in wordList:
+            if word in allWordDict.keys():
+                allWordDict[word] += 1
+            else:
+                allWordDict[word] = 1
+    #根据键的值倒序排序
+    allWordTuple = sorted(allWordDict.items(), key=lambda f:f[1], reverse =True)
+    allWordList, allWordNums = zip(*allWordTuple) #解压缩
+    allWordList = list(allWordList) #转换成列表
+    return allWordList, trainDataList, testDataList, trainClassList, testClassList
+
+def stopWords(wordFile):
+    """
+    函数说明:读取文件里的内容，并去重
+
+    Parameters:
+        wordsFile - 文件路径
+    Returns:
+        wordsSet - 读取的内容的set集合
+    """
+    wordSet = set()
+    with open(wordFile, 'r', encoding='utf-8') as f:
+        for line in f.readlines():
+            word = line.strip()
+            if len(word) > 0:
+                wordSet.add(word)
+    return wordSet
+
+def wordDict(allWordList, deleteN, stopWordSet =set()):
+    """
+    函数说明:文本特征选取
+
+    Parameters:
+        all_wordsallWordList_list - 训练集所有文本列表
+        deleteN - 删除词频最高的deleteN个词
+        stopWordSet - 指定的结束语
+    Returns:
+        featureWord - 特征集
+    """
+    featureWord = [] #特征列表
+    n = 1
+    for t in range(deleteN, len(allWordList), 1):
+        if n > 1000: #feature_words的维度为1000
+            break
+        #如果这个词不是数字，并且不是指定的结束语，并且单词长度大于1小于5，那么这个词就可以作为特征词
+        if not allWordList[t].isdigit() and allWordList[t] not in stopWordSet and 1 < len(allWordList[t]) < 5:
+            featureWord.append(allWordList[t])
+        n += 1
+    return featureWord
+
+def textFeatures(trainDataList, testDataList, featureWord):
+    def textFeature(text, featureWord):
+        textWords = set(text)
+        features = [1 if word in textWords else 0 for word in featureWord]
+        return features
+    trainFeatureList = [textFeature(text, featureWord) for text in trainDataList]
+    testFeatureList = [textFeature(text, featureWord) for text in testDataList]
+    return trainFeatureList, testFeatureList
+
+
+def textClassifier(trainFeatureList, testFeatureList, trainClassList, testClassList):
+    from sklearn.naive_bayes import MultinomialNB
+    classifier = MultinomialNB().fit(trainFeatureList, trainClassList)
+    testAccuracy = classifier.score(testFeatureList, testClassList)
+    return testAccuracy
 
 def testRSS():
     import feedparser
@@ -352,6 +442,46 @@ def testTopWords():
     sf=feedparser.parse('https://sfbay.craigslist.org/search/res?format=rss')
     getTopWords(ny,sf)
 
+def testCN():
+    folderPath = 'ch04-Bayes/SogouC/Sample'
+    #textProcessing(folderPath)
+    allWordList, trainDataList, testDataList, trainClassList, testClassList = textProcessing(folderPath, testSize=0.2)
+    #print(allWordList)
+
+    stopWordFile = 'ch04-Bayes/stopwords_cn.txt'
+    stopWordSet = stopWords(stopWordFile)
+    #print(stopWordSet)
+    #featureWord = wordDict(allWordList, 100, stopWordSet)
+    #print(featureWord)
+
+    testAccuracyList = []
+
+    """ #test deleteN value
+    deleteNs = range(0, 1000, 20)
+
+    for deleteN in deleteNs:
+        featureWord = wordDict(allWordList, deleteN, stopWordSet)
+        trainFeatureList, testFeatureList = textFeatures(trainDataList, testDataList, featureWord)
+        testAccuracy = textClassifier(trainFeatureList, testFeatureList, trainClassList, testClassList)
+        testAccuracyList.append(testAccuracy)
+    #print(testAccuracyList)
+
+    import matplotlib.pyplot as plt
+    plt.figure()
+    plt.plot(deleteNs, testAccuracyList)
+    plt.title('Relationshit of deleteNs and testAccuracy')
+    plt.xlabel('deleteNs')
+    plt.ylabel('testAccuracy')
+    plt.show() """
+
+    featureWord = wordDict(allWordList, 500, stopWordSet)
+    trainFeatureList, testFeatureList = textFeatures(trainDataList, testDataList, featureWord)
+    testAccuracy = textClassifier(trainFeatureList, testFeatureList, trainClassList, testClassList)
+    testAccuracyList.append(testAccuracy)
+    ave = lambda c: sum(c) / len(c)
+    print(ave(testAccuracyList))
+
+
 if __name__ == '__main__':
     """docList = []; classList=[]
     for i in range(1, 26):
@@ -367,9 +497,6 @@ if __name__ == '__main__':
     #spamTest()
 
 
-    testRSS()
+    #testRSS()
     #testTopWords()
-
-    #folderPath = 'ch04-Bayes/SogouC/Sample'
-    #textProcessing(folderPath)
-
+    testCN()
